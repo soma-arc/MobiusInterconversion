@@ -1,0 +1,6 @@
+[submodule "lib/GeometryUtils"]
+	path = lib/GeometryUtils
+	url = git@github.com:soma-arc/GeometryUtils
+[submodule "lib/dat.gui"]
+	path = lib/dat.gui
+	url = git@github.com:dataarts/dat.gui
