@@ -29,6 +29,21 @@ export function FixMinus (m) {
 }
 
 /**
+ * Apply a mobius transformation to a given circle
+ * @param {SL2C} m
+ * @param {Circle} c
+ * @returns {Circle}
+ */
+export function mobiusOnCircle (m, c) {
+    const compR = new Complex(c.r, 0);
+    const rSq = compR.sq();
+    const z = c.center.sub(rSq.div(Complex.conjugate(m.d.div(m.c).add(c.center))));
+    const newCenter = m.apply(z);
+    const newR = Complex.abs(newCenter.sub(m.apply(c.center.add(compR))));
+    return new Circle(newCenter, newR);
+}
+
+/**
  * Compute SL2C matrix that sends the two fixed points to zero and infinity
  * @param {Complex} fixMinus
  * @param {Complex} fixPlus
@@ -49,6 +64,96 @@ function MobiusFixInf (fix) {
                     Complex.ONE, fix.scale(-1));
 }
 
+export class Circle {
+    /**
+     * constructor
+     * @param {Complex} center
+     * @param {number} r
+     */
+    constructor (center, r) {
+        this.center = center;
+        this.r = r;
+    }
+
+    /**
+     * Compute a circle passing through three points
+     * @param {Complex} a
+     * @param {Complex} b
+     * @param {Complex} c
+     * @returns {Circle}
+     */
+    static fromPoints (a, b, c) {
+        const lA = Complex.distance(b, c);
+        const lB = Complex.distance(a, c);
+        const lC = Complex.distance(a, b);
+        const coefA = lA * lA * (lB * lB + lC * lC - lA * lA);
+        const coefB = lB * lB * (lA * lA + lC * lC - lB * lB);
+        const coefC = lC * lC * (lA * lA + lB * lB - lC * lC);
+        const denom = coefA + coefB + coefC;
+        const center = new Complex((coefA * a.re + coefB * b.re + coefC * c.re) / denom,
+                                   (coefA * a.im + coefB * b.im + coefC * c.im) / denom);
+        return new Circle(center, Complex.distance(center, a));
+    }
+}
+
+export class HalfPlane extends Circle {
+    /**
+     * Half Plane
+     * @param {Complex} p reference point
+     * @param {Complex} normal normal vector of this plane
+     */
+    constructor (p, normal) {
+        super(Complex.INFINITY, Number.POSITIVE_INFINITY);
+
+        this.p = p;
+        this.normal = normal.scale(1 / normal.abs());
+        // rotate normal vector by PI/2 radians
+        this.boundaryDir = new Complex(-this.normal.im,
+                                       this.normal.re);
+    }
+
+    /**
+     * Apply mobius transformation to this half plane
+     * @param {SL2C} m
+     * @return {Circle}
+     */
+    applyMobius (m) {
+        const mp1 = m.apply(this.p.add(this.boundaryDir.scale(2)));
+        const mp2 = m.apply(this.p.add(this.boundaryDir.scale(-4)));
+        const mp3 = m.apply(this.p.add(this.boundaryDir.scale(6)));
+        console.log(`points (${mp1.re}, ${mp1.im}), ` +
+                    `(${mp2.re}, ${mp2.im}), (${mp3.re}, ${mp3.im})`);
+
+        let mv = mp1.sub(mp2);
+        let halfPlane = false;
+        if (mp1.isInfinity() || mp2.isInfinity() || mp3.isInfinity()) {
+            // if one of the tranformed point is infinity
+            halfPlane = true;
+            const arr = [mp1, mp2, mp3].filter((elem) => { return !elem.isInfinity() });
+            mv = arr[0].sub(arr[1]);
+        } else if ((mv.im === 0 && mp3.im === 0) ||
+                   (mv.re === 0 && mp3.re === 0) ||
+                   Math.abs((mp3.re - mp1.re) * mv.im - mv.re * (mp3.im - mp1.im)) < 0.00000001) {
+            // Three points are on a line.
+            halfPlane = true;
+        }
+
+        if (halfPlane) {
+            // half plane
+            let np = m.apply(this.p);
+            if (np.isInfinity()) np = mp1;
+            const innerPoint = m.apply(this.p.add(this.normal.scale(-1)));
+
+            const innerVec = innerPoint.sub(np).normalize();
+            let nNormal = new Complex(-mv.im, mv.re).normalize();
+            if (Complex.dot(innerVec, nNormal) > 0) nNormal = nNormal.scale(-1);
+            return new HalfPlane(np, nNormal);
+        } else {
+            return Circle.fromPoints(mp1, mp2, mp3);
+        }
+    }
+}
+
 class ParabolicTransformation {
     /**
      * constructor
@@ -59,15 +164,37 @@ class ParabolicTransformation {
         if (m.c.isZero()) {
             this.translation = m.b;
         } else {
-            const fm = FixMinus(m);
-            let s = MobiusFixInf(fm);
-            this.t = s.mult(m).mult(s.inverse());
+            this.fix = FixMinus(m);
+            let s = MobiusFixInf(this.fix);
+            const sInv = s.inverse();
+            this.t = s.mult(m).mult(sInv);
             this.t = this.t.scale(Complex.ONE.div(this.t.determinant()))
             this.s = s;
             this.translation = this.t.b;
             console.log(this.t);
-            console.log(`the fixed point: (${fm.re}, ${fm.im})`)
+            console.log(`the fixed point: (${this.fix.re}, ${this.fix.im})`)
             console.log(`translation: (${this.translation.re}, ${this.translation.im})`);
+
+            // One of the reference point of half planes is zero.
+            this.hp1 = new HalfPlane(Complex.ZERO,
+                                     this.translation);
+            this.hp2 = new HalfPlane((this.translation.scale(0.5)),
+                                     this.translation.scale(-1));
+            console.log(this.hp1);
+            console.log(this.hp2);
+            const originalC1 = this.hp1.applyMobius(sInv);
+            console.log(originalC1);
+            const originalC2 = this.hp2.applyMobius(sInv);
+            console.log(originalC2);
+
+            if (originalC1.r < originalC2.r) {
+                this.innerCircle = originalC1;
+                this.outerCircle = originalC2;
+            } else {
+                this.innerCircle = originalC2;
+                this.outerCircle = originalC1;
+            }
+            console.log('------');
         }
     }
 }
@@ -77,6 +204,9 @@ class EllipticTransformation {
         this.sl2c = m;
         const tr = m.trace();
         this.k = tr.mult(tr).scale(0.5).sub(Complex.ONE);
+
+        this.fixPlus = FixPlus(this.sl2c);
+        this.fixMinus = FixMinus(this.sl2c);
     }
 }
 
@@ -85,6 +215,9 @@ class LoxodromicTransformation {
         this.sl2c = m;
         const tr = m.trace();
         this.k = tr.mult(tr).scale(0.5).sub(Complex.ONE);
+
+        this.fixPlus = FixPlus(this.sl2c);
+        this.fixMinus = FixMinus(this.sl2c);
     }
 }
 
@@ -93,6 +226,9 @@ class HyperbolicTransformation {
         this.sl2c = m;
         const tr = m.trace();
         this.k = tr.mult(tr).scale(0.5).sub(Complex.ONE);
+
+        this.fixPlus = FixPlus(this.sl2c);
+        this.fixMinus = FixMinus(this.sl2c);
     }
 }
 
