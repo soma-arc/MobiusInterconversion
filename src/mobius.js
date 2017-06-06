@@ -154,7 +154,7 @@ export class HalfPlane extends Circle {
     }
 }
 
-class ParabolicTransformation {
+export class ParabolicTransformation {
     /**
      * constructor
      * @param {SL2C} m

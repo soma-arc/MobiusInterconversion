@@ -16,6 +16,18 @@ module.exports = () => ({
     module: {
         loaders: [
             {
+                test: /\.(glsl|vert|frag)$/,
+                exclude: /\.(njk|nunjucks)\.(glsl|vert|frag)$/,
+                loader: 'shader-loader',
+            },
+            {
+                test: /\.(njk|nunjucks)\.(glsl|vert|frag)$/,
+                loader: 'nunjucks-loader',
+                query: {
+                    root: `${__dirname}/src`,
+                },
+            },
+            {
                 test: /\.js$/,
                 exclude: /node_modules/,
                 loader: 'babel-loader',
