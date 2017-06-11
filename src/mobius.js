@@ -76,6 +76,36 @@ export class Circle {
     }
 
     /**
+     * Apply inversion to a given point
+     * @param {Complex} p
+     */
+    invertOnPoint (p) {
+        const r2 = this.r * this.r;
+        const d = p.sub(this.center);
+        const lenSq = d.absSq();
+        return d.scale(r2 / lenSq).add(this.center);
+    }
+
+    /**
+     * Apply inversion to a given circle
+     * @param {Circle} c
+     * @returns {Circle}
+     */
+    invertOnCircle (c) {
+        if (c instanceof HalfPlane) {
+            const p1 = this.invertOnPoint(c.p);
+            const p2 = this.invertOnPoint(c.p.add(c.boundaryDir.scale(-20)));
+            const p3 = this.invertOnPoint(c.p.add(c.boundaryDir.scale(10)));
+            return Circle.fromPoints(p1, p2, p3);
+        }
+        const coeffR = c.r * Math.sqrt(2) / 2;
+        const p1 = this.invertOnPoint(c.center.add(new Complex(coeffR, coeffR)));
+        const p2 = this.invertOnPoint(c.center.add(new Complex(-coeffR, -coeffR)));
+        const p3 = this.invertOnPoint(c.center.add(new Complex(coeffR, -coeffR)));
+        return Circle.fromPoints(p1, p2, p3);
+    }
+
+    /**
      * Compute a circle passing through three points
      * @param {Complex} a
      * @param {Complex} b
@@ -99,6 +129,10 @@ export class Circle {
 export class HalfPlane extends Circle {
     /**
      * Half Plane
+     *       ^ normal
+     *       |
+     * ------+-------
+     * //////////////
      * @param {Complex} p reference point
      * @param {Complex} normal normal vector of this plane
      */
@@ -110,6 +144,31 @@ export class HalfPlane extends Circle {
         // rotate normal vector by PI/2 radians
         this.boundaryDir = new Complex(-this.normal.im,
                                        this.normal.re);
+    }
+
+    /**
+     * Apply inversion to a given point
+     * @param {Complex} point
+     */
+    invertOnPoint (point) {
+        let pos = point.sub(this.p);
+        const dp = point.re * this.normal.re + point.im + this.normal.im; // dot product
+        pos = pos.sub(this.normal.scale(2 * dp));
+        return pos.add(this.p);
+    }
+
+    /**
+     * Apply inversion to a given circle
+     * @param {Circle} c
+     * @returns {Circle}
+     */
+    invertOnCircle (c) {
+        if (c instanceof HalfPlane) {
+            return new HalfPlane(this.invertOnPoint(c.center),
+                                 c.normal.scale(-1));
+        }
+
+        return new Circle(this.invertOnPoint(c.center), c.r);
     }
 
     /**
@@ -196,6 +255,10 @@ export class ParabolicTransformation {
             }
             console.log('------');
         }
+    }
+
+    getClassName() {
+        return 'ParabolicTransformation';
     }
 }
 
