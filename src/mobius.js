@@ -152,7 +152,7 @@ export class HalfPlane extends Circle {
      */
     invertOnPoint (point) {
         let pos = point.sub(this.p);
-        const dp = point.re * this.normal.re + point.im + this.normal.im; // dot product
+        const dp = pos.re * this.normal.re + pos.im * this.normal.im; // dot product
         pos = pos.sub(this.normal.scale(2 * dp));
         return pos.add(this.p);
     }
