@@ -9,7 +9,7 @@ uniform vec3 u_geometry;
 uniform int u_maxIISIterations;
 
 {% for n in range(0, numParabolicTransformation) %}
-uniform float u_parabolic{{ n }}[15];
+uniform float u_parabolic{{ n }}[33];
 {% endfor %}
 
 out vec4 outColor;
@@ -19,6 +19,27 @@ const vec3 WHITE = vec3(1);
 const vec3 RED = vec3(0.8, 0, 0);
 const vec3 GREEN = vec3(0, 0.8, 0);
 const vec3 BLUE = vec3(0, 0, 0.8);
+
+vec2 compProd(const vec2 a, const vec2 b){
+    return vec2(a.x * b.x - a.y * b.y,
+                a.x * b.y + a.y * b.x);
+}
+
+vec2 compQuot(const vec2 a, const vec2 b){
+    float denom = dot(b, b);
+    return vec2((a.x * b.x + a.y * b.y) / denom,
+                (a.y * b.x - a.x * b.y) / denom);
+}
+
+// mobius is SL(2, C), 2x2 complex number matrix
+// c is CP1
+vec2 applyMobiusArray(const vec2 a, const vec2 b, const vec2 c, const vec2 d,
+                      const vec2 p){
+    vec2 nume = compProd(a, p) + b;
+    vec2 denom = compProd(c, p) + d;
+    return compQuot(nume, denom);
+}
+
 
 // from Syntopia http://blog.hvidtfeldts.net/index.php/2015/01/path-tracing-3d-fractals/
 vec2 rand2n(const vec2 co, const float sampleIndex) {
@@ -43,7 +64,41 @@ float IIS(vec2 pos) {
         if(i > u_maxIISIterations) break;
         inFund = true;
 
-          
+        vec2 p;
+        vec2 t;
+        float translateDist;
+        vec2 normal;
+        float d;
+        {% for n in range(0, numParabolicTransformation) %}
+        pos = applyMobiusArray(vec2(u_parabolic{{ n }}[15], u_parabolic{{ n }}[16]),
+                               vec2(u_parabolic{{ n }}[17], u_parabolic{{ n }}[18]),
+                               vec2(u_parabolic{{ n }}[19], u_parabolic{{ n }}[20]),
+                               vec2(u_parabolic{{ n }}[21], u_parabolic{{ n }}[22]),
+                               pos);
+        t = vec2(u_parabolic{{ n }}[23], u_parabolic{{ n }}[24]);
+        translateDist = length(t);
+        normal = normalize(t);
+        d = dot(normal, pos);
+        if(d < 0. || translateDist < d){
+            //            invNum += abs(floor(d / translateDist));
+            pos = pos - normal * (d - mod(d, translateDist));
+            inFund = false;
+        }
+        pos = applyMobiusArray(vec2(u_parabolic{{ n }}[25], u_parabolic{{ n }}[26]),
+                               vec2(u_parabolic{{ n }}[27], u_parabolic{{ n }}[28]),
+                               vec2(u_parabolic{{ n }}[29], u_parabolic{{ n }}[30]),
+                               vec2(u_parabolic{{ n }}[31], u_parabolic{{ n }}[32]),
+                               pos);
+        {% endfor %}
+
+        float r = 0.5;
+        vec4 c = vec4(1., .5, r, r * r);
+        if(distance(pos, c.xy) < c.z) {
+            pos = circleInvert(pos, c);
+            invNum++;
+            inFund = false;
+        }
+
         if (inFund) break;
     }
 
@@ -107,14 +162,16 @@ void main() {
 
         vec4 col = vec4(0);
         bool isRendered = renderGenerator(position, col);
-        if(isRendered) {
-            sum += col.rgb;
-            continue;
-        }
+        //        if(isRendered) {
+            //sum += col.rgb;
+            //            continue;
+            //        }
         float loopNum = IIS(position);
         if(loopNum > 0.){
             vec3 hsv = vec3(0. + 0.01 * (loopNum -1.), 1.0, 1.0);
-            sum += hsv2rgb(hsv);
+            sum += blendCol(col, vec4(hsv2rgb(hsv), 0.75)).rgb;
+        } else {
+            sum += col.rgb;
         }
     }
     vec3 texCol = texture(u_accTexture, gl_FragCoord.xy / u_resolution).rgb;

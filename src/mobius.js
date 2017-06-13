@@ -269,6 +269,8 @@ export class ParabolicTransformation {
         // [[isHalfPlane(0 or 1), x, y, r, r * r],
         //  [isHalfPlane, px, py, normalx, normaly]]
         // [c1, c2, c1d]
+        // translateX/2, translateY/2
+        // SL2C[a, b, c, d]
         gl.uniform1fv(uniLocation[uniI++],
                       this.getUniformArray());
         return uniI;
@@ -286,6 +288,9 @@ export class ParabolicTransformation {
                          c.r, c.r * c.r);
             }
         }
+        uni = uni.concat(this.s.linearArray,
+                   this.translation.scale(0.5).linearArray,
+                   this.s.inverse().linearArray);
         return uni;
     }
 
