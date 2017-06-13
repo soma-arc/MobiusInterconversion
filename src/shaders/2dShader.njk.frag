@@ -8,6 +8,10 @@ uniform vec2 u_resolution;
 uniform vec3 u_geometry;
 uniform int u_maxIISIterations;
 
+{% for n in range(0, numParabolicTransformation) %}
+uniform float u_parabolic{{ n }}[15];
+{% endfor %}
+
 out vec4 outColor;
 
 const vec3 BLACK = vec3(0);
@@ -52,9 +56,44 @@ vec3 hsv2rgb(vec3 c){
     return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
 }
 
-bool renderGenerator(vec2 pos, out vec3 color) {
+vec4 blendCol(vec4 srcC, vec4 outC){
+	srcC.rgb *= srcC.a;
+	return outC + srcC * (1.0 - outC.a);
+}
 
-    return false;
+bool renderGenerator(vec2 pos, out vec4 color) {
+    vec3 nFact;
+    vec4 genCol;
+    {% for n in range(0, numParabolicTransformation) %}
+    nFact = vec3(0.1 * float({{ n }}));
+    genCol = vec4(0);
+    for(int i = 2 ; i >= 0 ; i--) {
+        vec3 col = (i == 0) ? RED : BLUE;
+        col = (i == 1) ? GREEN : col;
+        if(u_parabolic{{ n }}[i * 5] == 0.) { // isHalfPlane?
+            // Circle
+            vec3 c = vec3(u_parabolic{{ n }}[i * 5 + 1],
+                          u_parabolic{{ n }}[i * 5 + 2],
+                          u_parabolic{{ n }}[i * 5 + 3]);
+            if(distance(pos, c.xy) < c.z) {
+                genCol = vec4(col, 0.5);
+                break;
+            }
+        } else {
+            // HalfPlane
+            vec4 c = vec4(u_parabolic{{ n }}[i * 5 + 1],
+                          u_parabolic{{ n }}[i * 5 + 2],
+                          u_parabolic{{ n }}[i * 5 + 3],
+                          u_parabolic{{ n }}[i * 5 + 4]);
+            if(dot(pos - c.xy, c.zw) < 0.) {
+                genCol = vec4(col, 0.5);
+                break;
+            }
+        }
+    }
+    color = blendCol(genCol, color);
+    {% endfor %}
+    return true;
 }
 
 const float MAX_SAMPLES = 10.;
@@ -66,10 +105,10 @@ void main() {
         position = position * u_geometry.z;
         position += u_geometry.xy;
 
-        vec3 col = vec3(0);
+        vec4 col = vec4(0);
         bool isRendered = renderGenerator(position, col);
         if(isRendered) {
-            sum += col;
+            sum += col.rgb;
             continue;
         }
         float loopNum = IIS(position);

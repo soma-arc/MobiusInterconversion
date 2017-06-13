@@ -180,8 +180,8 @@ export class HalfPlane extends Circle {
         const mp1 = m.apply(this.p.add(this.boundaryDir.scale(2)));
         const mp2 = m.apply(this.p.add(this.boundaryDir.scale(-4)));
         const mp3 = m.apply(this.p.add(this.boundaryDir.scale(6)));
-        console.log(`points (${mp1.re}, ${mp1.im}), ` +
-                    `(${mp2.re}, ${mp2.im}), (${mp3.re}, ${mp3.im})`);
+//        console.log(`points (${mp1.re}, ${mp1.im}), ` +
+//                    `(${mp2.re}, ${mp2.im}), (${mp3.re}, ${mp3.im})`);
 
         let mv = mp1.sub(mp2);
         let halfPlane = false;
@@ -242,19 +242,51 @@ export class ParabolicTransformation {
             console.log(this.hp1);
             console.log(this.hp2);
             const originalC1 = this.hp1.applyMobius(sInv);
-            console.log(originalC1);
             const originalC2 = this.hp2.applyMobius(sInv);
-            console.log(originalC2);
 
             if (originalC1.r < originalC2.r) {
-                this.innerCircle = originalC1;
-                this.outerCircle = originalC2;
+                this.c1 = originalC1;
+                this.c2 = originalC2;
             } else {
-                this.innerCircle = originalC2;
-                this.outerCircle = originalC1;
+                this.c1 = originalC2;
+                this.c2 = originalC1;
             }
+            this.c1d = this.c2.invertOnCircle(this.c1);
+            console.log('c1, c2, c1\'');
+            console.log(this.c1);
+            console.log(this.c2);
+            console.log(this.c1d);
             console.log('------');
         }
+    }
+
+    setUniformLocation(gl, uniLocations, program, index) {
+        uniLocations.push(gl.getUniformLocation(program, `u_parabolic${index}`));
+    }
+
+    setUniformValues(gl, uniLocation, uniIndex) {
+        let uniI = uniIndex;
+        // [[isHalfPlane(0 or 1), x, y, r, r * r],
+        //  [isHalfPlane, px, py, normalx, normaly]]
+        // [c1, c2, c1d]
+        gl.uniform1fv(uniLocation[uniI++],
+                      this.getUniformArray());
+        return uniI;
+    }
+
+    getUniformArray() {
+        let uni = [];
+        const circles = [this.c1, this.c2, this.c1d];
+        for (const c of circles) {
+            if (c instanceof HalfPlane) {
+                uni.push(1, c.p.re, c.p.im,
+                         c.normal.re, this.c2.normal.im);
+            } else {
+                uni.push(0, c.center.re, c.center.im,
+                         c.r, c.r * c.r);
+            }
+        }
+        return uni;
     }
 
     getClassName() {

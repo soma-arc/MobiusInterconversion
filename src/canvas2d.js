@@ -41,7 +41,7 @@ export default class Canvas2D {
         this.texturesFrameBuffer = this.gl.createFramebuffer();
 
         // geometry
-        this.scale = 500;
+        this.scale = 10;
         this.scaleFactor = 1.5;
         this.translate = new Vec2(0, 0);
 

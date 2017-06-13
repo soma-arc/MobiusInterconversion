@@ -7,12 +7,12 @@ import Scene from './scene.js';
 window.addEventListener('load', () => {
     const m = new SL2C(Complex.ONE, Complex.ZERO,
                        new Complex(0, -2), Complex.ONE);
-    Classify(m);
     const m2 = new SL2C(new Complex(1, -1), Complex.ONE,
                         Complex.ONE, new Complex(1, 1));
-    Classify(m2);
 
     const scene = new Scene();
+    scene.addTransformation(Classify(m));
+    scene.addTransformation(Classify(m2));
     const canvas2d = new Canvas2D('canvas', scene);
     canvas2d.render();
 });

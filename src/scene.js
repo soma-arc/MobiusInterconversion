@@ -8,11 +8,12 @@ export default class Scene {
         this.objects = {};
     }
 
-    addParabolic(parabolic) {
-        if (this.objects['parabolic'] === undefined) {
-            this.objects['parabolic'] = [];
+    addTransformation(t) {
+        const name = t.getClassName();
+        if (this.objects[name] === undefined) {
+            this.objects[name] = [];
         }
-        this.objects['parabolic'] = parabolic;
+        this.objects[name].push(t);
     }
 
     setUniformLocation(gl, uniLocations, program) {
