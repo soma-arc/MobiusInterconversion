@@ -289,8 +289,8 @@ export class ParabolicTransformation {
             }
         }
         uni = uni.concat(this.s.linearArray,
-                   this.translation.scale(0.5).linearArray,
-                   this.s.inverse().linearArray);
+                         this.translation.linearArray,
+                         this.s.inverse().linearArray);
         return uni;
     }
 
